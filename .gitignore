@@ -1,0 +1,6 @@
+data/
+tfenv/
+__pycache__/
+*.pyc
+.env
+best_brain_tumor_model.h5

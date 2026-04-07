@@ -1,0 +1,653 @@
+<!--  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroScan — Brain Tumor Detection</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #050a14;
+      --surface: #0c1625;
+      --surface2: #112038;
+      --border: rgba(100, 180, 255, 0.12);
+      --accent: #38bdf8;
+      --accent2: #818cf8;
+      --danger: #f87171;
+      --safe: #34d399;
+      --text: #e2eaf5;
+      --muted: #6b8aad;
+      --glow: rgba(56, 189, 248, 0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Background Grid ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(56,189,248,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Radial glow blobs ─── */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 { width: 500px; height: 500px; background: #0ea5e9; top: -120px; left: -120px; }
+    .blob-2 { width: 400px; height: 400px; background: #6366f1; bottom: -80px; right: -80px; }
+
+    /* ─── Layout ─── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Header ─── */
+    header {
+      padding: 28px 48px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: rgba(5,10,20,0.6);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo-icon {
+      width: 40px; height: 40px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .logo-icon svg { width: 100%; height: 100%; }
+
+    .logo-text {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.5rem;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .logo-text span { color: var(--accent); }
+
+    .badge {
+      margin-left: auto;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      border: 1px solid rgba(56,189,248,0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(56,189,248,0.06);
+    }
+
+    /* ─── Main ─── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 24px 80px;
+      gap: 48px;
+    }
+
+    /* ─── Hero Text ─── */
+    .hero {
+      text-align: center;
+      max-width: 560px;
+      animation: fadeUp 0.7s ease both;
+    }
+    .hero-eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    .hero h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    /* ─── Upload Card ─── */
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      animation: fadeUp 0.7s 0.15s ease both;
+      box-shadow: 0 0 60px rgba(56,189,248,0.05), 0 24px 48px rgba(0,0,0,0.4);
+    }
+
+    /* ─── Drop Zone ─── */
+    .drop-zone {
+      border: 2px dashed rgba(56,189,248,0.25);
+      border-radius: 14px;
+      padding: 40px 24px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.25s ease;
+      background: rgba(56,189,248,0.02);
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragging {
+      border-color: var(--accent);
+      background: rgba(56,189,248,0.06);
+      box-shadow: inset 0 0 30px rgba(56,189,248,0.04);
+    }
+
+    /* Hidden real file input — triggered programmatically */
+    #file-input { display: none; }
+
+    /* Browse button inside drop zone */
+    .browse-btn {
+      margin-top: 4px;
+      padding: 8px 20px;
+      background: var(--surface2);
+      border: 1px solid rgba(56,189,248,0.3);
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .browse-btn:hover {
+      background: rgba(56,189,248,0.1);
+      border-color: var(--accent);
+    }
+
+    .drop-icon {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease;
+    }
+    .drop-zone:hover .drop-icon { transform: translateY(-3px); }
+
+    .drop-label {
+      font-size: 0.95rem;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .drop-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ─── Persisted MRI image shown with result ─── */
+    .mri-display {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .mri-display-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .mri-display img {
+      width: 100%;
+      max-height: 280px;
+      object-fit: contain;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #000;
+      display: block;
+    }
+
+    /* ─── Preview ─── */
+    #preview-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    #preview-wrap.show { display: flex; }
+
+    #preview-img {
+      width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #000;
+      animation: fadeIn 0.4s ease;
+    }
+
+    #file-name {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    /* ─── Submit Button ─── */
+    .submit-btn {
+      margin-top: 24px;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: opacity 0.2s, transform 0.2s;
+      box-shadow: 0 4px 24px rgba(14,165,233,0.3);
+    }
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background 0.2s;
+    }
+    .submit-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .submit-btn:active { transform: translateY(0); opacity: 1; }
+
+    /* ─── Loading spinner inside button ─── */
+    .btn-inner { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ─── Result Card ─── */
+    .result-card {
+      width: 100%;
+      max-width: 560px;
+      border-radius: 20px;
+      padding: 32px;
+      animation: fadeUp 0.5s ease both;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    .result-card.tumor {
+      background: linear-gradient(135deg, rgba(248,113,113,0.08), rgba(239,68,68,0.04));
+      border-color: rgba(248,113,113,0.3);
+      box-shadow: 0 0 60px rgba(248,113,113,0.08);
+    }
+    .result-card.safe {
+      background: linear-gradient(135deg, rgba(52,211,153,0.08), rgba(16,185,129,0.04));
+      border-color: rgba(52,211,153,0.3);
+      box-shadow: 0 0 60px rgba(52,211,153,0.08);
+    }
+
+    .result-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .result-card.tumor::before { background: linear-gradient(90deg, #f87171, #ef4444); }
+    .result-card.safe::before  { background: linear-gradient(90deg, #34d399, #10b981); }
+
+    .result-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .result-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .tumor .result-icon { background: rgba(248,113,113,0.12); }
+    .safe  .result-icon { background: rgba(52,211,153,0.12); }
+
+    .result-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .tumor .result-label { color: var(--danger); }
+    .safe  .result-label { color: var(--safe); }
+
+    .result-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    /* ─── Confidence Bar ─── */
+    .conf-section { margin-top: 4px; }
+    .conf-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .conf-text {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+    .conf-pct {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .tumor .conf-pct { color: var(--danger); }
+    .safe  .conf-pct { color: var(--safe); }
+
+    .bar-track {
+      height: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      width: 0;
+      transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .tumor .bar-fill { background: linear-gradient(90deg, #fca5a5, #ef4444); }
+    .safe  .bar-fill { background: linear-gradient(90deg, #6ee7b7, #10b981); }
+
+    .result-note {
+      margin-top: 20px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .result-note strong { color: var(--text); font-weight: 500; }
+
+    /* ─── Footer ─── */
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* ─── Animations ─── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ─── Scan line animation ─── */
+    @keyframes scanline {
+      0%   { top: 0%; opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .scan-anim {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scanline 2s linear 3;
+      pointer-events: none;
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 20px 24px; }
+      .card  { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-icon">
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="19" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path d="M12 20c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M20 14v6l4 2" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="20" cy="20" r="2" fill="#38bdf8"/>
+      </svg>
+    </div>
+    <div class="logo-text">Neuro<span>Scan</span></div>
+    <div class="badge">AI MODEL v1.0</div>
+  </header>
+
+  <!-- Main -->
+  <main>
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-eyebrow">Deep Learning — MRI Analysis</div>
+      <h1>Detect Brain Tumors<br/>with <em>Precision</em></h1>
+      <p>Upload an MRI scan and let our neural network analyze it in seconds. Results are for research purposes only.</p>
+    </div>
+
+    <!-- Upload Card -->
+    <div class="card">
+      <form id="upload-form" action="/predict" method="POST" enctype="multipart/form-data">
+
+        <!-- Hidden file input triggered by browse btn or drag -->
+        <input type="file" name="file" id="file-input" accept="image/*" required style="display:none"/>
+
+        <div class="drop-zone" id="drop-zone">
+          <div class="drop-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="drop-label">Drag &amp; drop your MRI image here</div>
+          <div class="drop-sub">PNG · JPG · JPEG · WEBP</div>
+          <button type="button" class="browse-btn" id="browse-btn">&#128194; Browse Files</button>
+        </div>
+
+        <div id="preview-wrap">
+          <img id="preview-img" src="" alt="MRI Preview"/>
+          <div id="file-name"></div>
+        </div>
+
+        <button class="submit-btn" type="submit" id="submit-btn">
+          <div class="btn-inner">
+            <div class="spinner" id="spinner"></div>
+            <span id="btn-text">Analyze Scan</span>
+          </div>
+        </button>
+
+      </form>
+    </div>
+
+    <!-- Result -->
+    {% if prediction %}
+    {% set is_tumor = 'YES' in prediction or 'Tumor Detected' in prediction %}
+    <div class="result-card {{ 'tumor' if is_tumor else 'safe' }}">
+      <div class="scan-anim"></div>
+
+      {% if image_data %}
+      <div class="mri-display">
+        <div class="mri-display-label">Analyzed MRI Scan</div>
+        <img src="data:image/jpeg;base64,{{ image_data }}" alt="Analyzed MRI"/>
+      </div>
+      {% endif %}
+
+      <div class="result-top">
+        <div class="result-icon">
+          {% if is_tumor %}
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {% else %}
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          {% endif %}
+        </div>
+        <div>
+          <div class="result-label">{{ 'Detection Result' }}</div>
+          <div class="result-title">{{ 'Tumor Detected' if is_tumor else 'No Tumor Found' }}</div>
+        </div>
+      </div>
+
+      <!-- Confidence bar -->
+      {% set conf_str = prediction.split(' - ')[-1].replace('%','') %}
+      <div class="conf-section">
+        <div class="conf-row">
+          <span class="conf-text">Confidence</span>
+          <span class="conf-pct">{{ conf_str }}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="conf-bar" data-width="{{ conf_str }}"></div>
+        </div>
+      </div>
+
+      <div class="result-note">
+        <strong>⚠ Clinical Disclaimer:</strong> This result is generated by an AI model and is intended for <strong>research and educational purposes only</strong>. It does not constitute a medical diagnosis. Please consult a qualified neurologist or radiologist for clinical evaluation.
+      </div>
+    </div>
+    {% endif %}
+
+  </main>
+
+  <footer>NeuroScan &nbsp;·&nbsp; AI-Powered MRI Analysis &nbsp;·&nbsp; For Research Use Only</footer>
+</div>
+
+<script>
+  const input    = document.getElementById('file-input');
+  const dropZone = document.getElementById('drop-zone');
+  const prevWrap = document.getElementById('preview-wrap');
+  const prevImg  = document.getElementById('preview-img');
+  const fileName = document.getElementById('file-name');
+
+  // ─── Browse button opens file picker ───
+  document.getElementById('browse-btn').addEventListener('click', () => input.click());
+
+  function showPreview(file) {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    prevImg.src = url;
+    fileName.textContent = file.name;
+    prevWrap.classList.add('show');
+  }
+
+  input.addEventListener('change', () => showPreview(input.files[0]));
+
+  // ─── Drag & drop onto the drop zone ───
+  ['dragenter','dragover'].forEach(e =>
+    dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('dragging'); }));
+  ['dragleave','drop'].forEach(e =>
+    dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('dragging'); }));
+  dropZone.addEventListener('drop', ev => {
+    const file = ev.dataTransfer.files[0];
+    if (file) {
+      // Assign dropped file to the real input via DataTransfer
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      showPreview(file);
+    }
+  });
+
+  // ─── Loading state on submit ───
+  document.getElementById('upload-form').addEventListener('submit', () => {
+    document.getElementById('spinner').style.display = 'block';
+    document.getElementById('btn-text').textContent = 'Analyzing…';
+    document.getElementById('submit-btn').disabled = true;
+  });
+
+  // ─── Animate confidence bar ───
+  window.addEventListener('load', () => {
+    const bar = document.getElementById('conf-bar');
+    if (bar) {
+      const w = parseFloat(bar.dataset.width);
+      setTimeout(() => bar.style.width = w + '%', 300);
+    }
+  });
+</script>
+</body>
+</html>
