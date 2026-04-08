@@ -13,7 +13,6 @@ This project presents a deep learning-based system for **brain tumor detection**
 * Confusion matrix visualization
 * Accuracy comparison graph
 * Training & validation curves
-* Overfitting reduction using data augmentation
 * Transfer learning using MobileNetV2
 
 ---
@@ -81,7 +80,7 @@ ResNet50 architecture is used with transfer learning. The pretrained layers extr
 | MobileNetV2 | ~82%  |
 | ResNet50    | ~63%  |
 
-MobileNetV2 achieved the best performance.
+CNN achieved the best performance.
 
 ---
 
